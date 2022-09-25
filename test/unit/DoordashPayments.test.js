@@ -23,7 +23,7 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
                   expect(await doordashPayments.orderFood(TIP_AMOUNT, { value: PRICE })).to.emit("FoodOrdered")
               })
               it("reverts if msg.value is 0", async function () {
-                  await expect(doordashPayments.orderFood(TIP_AMOUNT)).to.be.revertedWith("NoValue")
+                  await expect(doordashPayments.orderFood(TIP_AMOUNT)).to.be.revertedWith("InsufficientValue")
               })
               it("updates struct with correct info", async function () {
                   const tx = await doordashPayments.orderFood(TIP_AMOUNT, { value: PRICE })
@@ -37,7 +37,11 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
                   const ownerBalance = await doordashPayments.getBalance(deployer)
                   assert.equal(PRICE - TIP_AMOUNT, ownerBalance.toString())
               })
-              it("updates lastOrderId correctly", async function () {})
+              it("reverts if tipAmount is greater then msg.value", async function () {
+                  await expect(doordashPayments.orderFood(PRICE, { value: TIP_AMOUNT })).to.be.revertedWith(
+                      "InsufficientValue"
+                  )
+              })
           })
           describe("assignDriver", function () {
               it("reverts if caller is not owner", async function () {
@@ -166,7 +170,7 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
           })
           describe("depositEth", function () {
               it("reverts if msg.value is zero", async function () {
-                  await expect(doordashPayments.depositEth()).to.be.revertedWith("NoValue")
+                  await expect(doordashPayments.depositEth()).to.be.revertedWith("InsufficientValue")
               })
               it("adds msg.value to msg.senders balance correctly", async function () {
                   const startBalance = await doordashPayments.getBalance(player)

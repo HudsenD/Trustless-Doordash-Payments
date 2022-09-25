@@ -8,3 +8,13 @@ they call the orderFood() function which takes an input for the tip amount on th
 amount is saved in the contract and becomes available to withdraw once the order is delivered.
 Once marked delivered, the driver assigned to the order automatically gets the tip added to
 their balance within the contract.
+
+## Technologies
+
+Project is made with:
+
+-   Solidity
+-   Javascript
+-   Hardhat
+-   Openzeppelin
+-   Ethers.js
