@@ -14,7 +14,14 @@ error DoordashPayments__DriverNotAssigned();
 error DoordashPayments__InvalidOrderId();
 error DoordashPayments__WaitMoreTime();
 
+/** @title A payment system for Doordash
+ * @author Hudsen Durst
+ * @notice This contract that ensures Doordash can't take tips from drivers
+ * @dev
+ */
+
 contract DoordashPayments is Ownable, ReentrancyGuard {
+    /* State Variables */
     uint256 orderCounter;
 
     struct FoodOrder {
@@ -30,9 +37,14 @@ contract DoordashPayments is Ownable, ReentrancyGuard {
         uint256 lastOrderId;
     }
 
-    event FoodOrdered(address indexed buyer, uint256 indexed orderId);
+    /* Events */
 
+    event FoodOrdered(address indexed buyer, uint256 indexed orderId);
+    event OrderDelivered(uint256 indexed orderId, address indexed driver, address indexed buyer);
+
+    // OrderID -> FoodOrder
     mapping(uint256 => FoodOrder) s_idtoFoodOrder;
+    // User address -> User
     mapping(address => User) s_users;
 
     modifier isDelivered(uint256 orderId) {
@@ -42,12 +54,20 @@ contract DoordashPayments is Ownable, ReentrancyGuard {
         _;
     }
 
+    /////////////////////
+    // Main Functions //
+    /////////////////////
+    /**
+     * @notice Method for handling new food orders from customers
+     * @param tipAmount: tip that gets paid to delivery driver
+     * @dev
+     */
     function orderFood(uint256 tipAmount) external payable {
         if (msg.value <= 0) {
             revert DoordashPayments__NoValue();
         }
         uint256 orderId = orderCounter;
-        orderCounter++;
+        orderCounter++; //
         uint256 payment = msg.value - tipAmount;
         s_users[owner()].balance += payment;
         s_users[msg.sender].lastOrderId = orderId;
@@ -58,6 +78,13 @@ contract DoordashPayments is Ownable, ReentrancyGuard {
         emit FoodOrdered(msg.sender, orderId);
     }
 
+    /**
+     * @notice Method for Doordash to assign a delivery driver to an order
+     * @param driver: Address of driver being assigned to the order
+     * @param orderId: The ID of the food order
+     * @dev
+     */
+
     function assignDriver(address driver, uint256 orderId) external onlyOwner isDelivered(orderId) {
         if (s_idtoFoodOrder[orderId].buyer == address(0)) {
             revert DoordashPayments__InvalidOrderId();
@@ -65,6 +92,12 @@ contract DoordashPayments is Ownable, ReentrancyGuard {
         s_idtoFoodOrder[orderId].driver = driver;
         s_idtoFoodOrder[orderId].assignTime = block.timestamp;
     }
+
+    /**
+     * @notice Method for the buyer of the food to mark the order as delivered
+     * @param orderId: The ID of the food order
+     * @dev Function checks if order has been delivered using the isDelivered modifier so tips cannot be paid twice
+     */
 
     function buyerDelivered(uint256 orderId) external isDelivered(orderId) {
         FoodOrder memory foodOrder = s_idtoFoodOrder[orderId];
@@ -83,7 +116,15 @@ contract DoordashPayments is Ownable, ReentrancyGuard {
         address driver = foodOrder.driver;
         uint256 tipAmount = foodOrder.tipAmount;
         s_users[driver].balance += tipAmount;
+        emit OrderDelivered(orderId, driver, foodOrder.buyer);
     }
+
+    /**
+     * @notice Method for the delivery driver of the food to mark the order as delivered
+     * @param orderId: The ID of the food order
+     * @dev This function checks that its been at least 2 hours since a driver was assigned
+     * to prevent drivers from recieving their tips before the order is actually delivered
+     */
 
     function driverDelivered(uint256 orderId) external isDelivered(orderId) {
         if (msg.sender != s_idtoFoodOrder[orderId].driver) {
@@ -96,6 +137,12 @@ contract DoordashPayments is Ownable, ReentrancyGuard {
     }
 
     // drivers can call this to get their tips, users will also call this to receive a refund
+
+    /**
+     * @notice Method for anyone to withdraw their funds from contract
+     * @param amount: Amount in wei user wants to withdraw from contract
+     * @dev
+     */
     function withdrawBalance(uint256 amount) external nonReentrant {
         if (s_users[msg.sender].balance < amount) {
             // was <=, make sure i didn't mess this up
@@ -108,6 +155,13 @@ contract DoordashPayments is Ownable, ReentrancyGuard {
         }
     }
 
+    /**
+     * @notice Method for Doordash to refund a user if an order is canceled
+     * @param user: Address of person to refund
+     * @param amount: Amount in wei to add to users balance
+     * @dev
+     */
+
     function refundUser(address user, uint256 amount) public onlyOwner {
         if (s_users[owner()].balance < amount) {
             revert DoordashPayments__InsufficientBalance();
@@ -115,6 +169,13 @@ contract DoordashPayments is Ownable, ReentrancyGuard {
         s_users[owner()].balance -= amount;
         s_users[user].balance += amount;
     }
+
+    /**
+     * @notice Method for Doordash to cancel an order which automatically refunds the buyer
+     * @param orderId: The ID of the food order
+     * @param amount: Total amount in wei paid by user for that order
+     * @dev
+     */
 
     function cancelOrder(uint256 orderId, uint256 amount) external onlyOwner {
         FoodOrder memory foodOrder = s_idtoFoodOrder[orderId];
@@ -125,12 +186,21 @@ contract DoordashPayments is Ownable, ReentrancyGuard {
         refundUser(user, amount);
     }
 
+    /**
+     * @notice Method for anyone to deposit eth into contract.
+     * @dev
+     */
+
     function depositEth() external payable {
         if (msg.value <= 0) {
             revert DoordashPayments__NoValue();
         }
         s_users[msg.sender].balance += msg.value;
     }
+
+    /////////////////////
+    // Getter Functions //
+    /////////////////////
 
     function getLastOrderId(address user) external view returns (uint256) {
         return s_users[user].lastOrderId;

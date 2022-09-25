@@ -60,6 +60,11 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
               })
           })
           describe("buyerDelivered", function () {
+              it("emits OrderDelivered Event", async function () {
+                  await doordashPayments.orderFood(TIP_AMOUNT, { value: PRICE })
+                  await doordashPayments.assignDriver(player, "0")
+                  expect(await doordashPayments.buyerDelivered("0")).to.emit("OrderDelivered")
+              })
               it("reverts if msg.sender is not the buyer", async function () {
                   await doordashPayments.orderFood(TIP_AMOUNT, { value: PRICE })
                   await doordashPayments.assignDriver(player, "0")
