@@ -144,7 +144,6 @@ contract DoordashPayments is Ownable, ReentrancyGuard {
      */
     function withdrawBalance(uint256 amount) external nonReentrant {
         if (s_users[msg.sender].balance < amount) {
-            // was <=, make sure i didn't mess this up
             revert DoordashPayments__InsufficientBalance();
         }
         s_users[msg.sender].balance -= amount;
@@ -187,7 +186,7 @@ contract DoordashPayments is Ownable, ReentrancyGuard {
 
     /**
      * @notice Method for anyone to deposit eth into contract.
-     * @dev
+     * @dev Function reverts if no value is being deposited
      */
 
     function depositEth() external payable {
